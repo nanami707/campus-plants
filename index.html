@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>校园植物目录 · 云同步版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --green-dark:#2d6a4f; --green:#40916c; --green-light:#52b788; --green-pale:#95d5b2; --green-bg:#d8f3dc; --white:#fff; --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --shadow-sm:0 1px 2px rgba(0,0,0,0.05); --shadow:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06); --shadow-lg:0 10px 25px rgba(0,0,0,0.1),0 4px 10px rgba(0,0,0,0.08); --shadow-xl:0 20px 40px rgba(0,0,0,0.12); --radius-sm:10px; --radius:14px; --radius-lg:20px; --radius-xl:24px; --font-xs:11px; --font-sm:13px; --font-base:15px; --font-lg:17px; --font-xl:20px; --font-2xl:24px; --font-3xl:30px; --transition:0.2s cubic-bezier(0.4,0,0.2,1); }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background:#f0f5f1; min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+        .nav-bar { position:sticky; top:0; z-index:100; background:rgba(255,255,255,0.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(0,0,0,0.06); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+        .nav-title { font-size:var(--font-xl); font-weight:700; color:var(--gray-800); white-space:nowrap; }
+        .nav-title .icon-leaf { margin-right:4px; font-size:22px; }
+        .btn-icon { width:38px; height:38px; border-radius:50%; border:none; background:var(--gray-100); cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition:var(--transition); color:var(--gray-600); position:relative; }
+        .btn-icon:active { transform:scale(0.93); background:var(--gray-200); }
+        .btn-icon.has-badge::after { content:attr(data-badge); position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; font-size:10px; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:600; padding:0 5px; border:2px solid #fff; }
+        .app-container { max-width:500px; margin:0 auto; background:var(--white); min-height:100vh; box-shadow:var(--shadow-xl); position:relative; }
+        .search-container { padding:8px 16px 14px; position:sticky; top:64px; z-index:50; background:var(--white); }
+        .search-wrapper { display:flex; align-items:center; gap:10px; background:var(--gray-100); border-radius:28px; padding:11px 18px; border:2px solid transparent; }
+        .search-wrapper:focus-within { border-color:var(--green-light); background:var(--white); box-shadow:0 0 0 4px rgba(64,145,108,0.08); }
+        .search-icon { font-size:18px; color:var(--gray-400); flex-shrink:0; }
+        .search-input { flex:1; border:none; background:transparent; font-size:var(--font-base); outline:none; color:var(--gray-800); }
+        .search-clear { display:none; width:24px; height:24px; border-radius:50%; background:var(--gray-300); border:none; cursor:pointer; font-size:12px; color:#fff; align-items:center; justify-content:center; flex-shrink:0; }
+        .search-clear.visible { display:flex; }
+        .category-tabs { display:flex; gap:8px; padding:0 16px 14px; overflow-x:auto; }
+        .category-tab { flex-shrink:0; padding:8px 16px; border-radius:22px; border:1.5px solid var(--gray-200); background:var(--white); font-size:var(--font-sm); cursor:pointer; white-space:nowrap; transition:var(--transition); font-weight:500; color:var(--gray-600); }
+        .category-tab.active { background:var(--green); color:#fff; border-color:var(--green); font-weight:600; box-shadow:0 2px 8px rgba(64,145,108,0.3); }
+        .plant-list { padding:0 16px 100px; display:grid; gap:14px; }
+        .plant-card { background:var(--white); border-radius:var(--radius-lg); overflow:hidden; cursor:pointer; transition:var(--transition); box-shadow:var(--shadow-sm); border:1px solid var(--gray-100); display:flex; flex-direction:column; position:relative; }
+        .plant-card:active { transform:scale(0.98); box-shadow:var(--shadow-lg); }
+        .plant-card-image { width:100%; height:180px; object-fit:cover; position:relative; }
+        .plant-card-image .plant-emoji { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:64px; pointer-events:none; }
+        .plant-card-badge { position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.5); backdrop-filter:blur(8px); color:#fff; padding:5px 10px; border-radius:14px; font-size:var(--font-xs); font-weight:600; }
+        .plant-card-body { padding:14px 16px 16px; flex:1; display:flex; flex-direction:column; gap:6px; }
+        .plant-card-name { font-size:var(--font-lg); font-weight:700; color:var(--gray-800); }
+        .plant-card-latin { font-size:var(--font-xs); color:var(--gray-400); font-style:italic; }
+        .plant-card-desc { font-size:var(--font-sm); color:var(--gray-500); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5; }
+        .plant-card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:6px; }
+        .plant-card-tags { display:flex; gap:6px; flex-wrap:wrap; }
+        .plant-tag { font-size:var(--font-xs); padding:4px 10px; border-radius:12px; background:var(--green-bg); color:var(--green-dark); font-weight:500; }
+        .plant-card-checkins { display:flex; align-items:center; gap:4px; font-size:var(--font-xs); color:var(--gray-500); flex-shrink:0; font-weight:500; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--gray-400); }
+        .detail-overlay { position:fixed; top:0; left:0; right:0; bottom:0; z-index:200; background:var(--white); overflow-y:auto; animation:slideUp 0.35s ease; display:none; }
+        .detail-overlay.visible { display:block; }
+        @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+        .detail-header { position:sticky; top:0; z-index:10; background:rgba(255,255,255,0.9); backdrop-filter:blur(20px); padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(0,0,0,0.05); }
+        .btn-back { width:36px; height:36px; border-radius:50%; border:none; background:var(--gray-100); cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; }
+        .detail-header-title { font-weight:700; font-size:var(--font-lg); flex:1; color:var(--gray-800); }
+        .detail-hero { width:100%; height:260px; position:relative; }
+        .detail-hero .hero-emoji { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:80px; }
+        .detail-content { padding:16px 18px 120px; }
+        .detail-info-card { background:var(--white); border-radius:var(--radius-lg); padding:18px; box-shadow:var(--shadow); margin-bottom:16px; }
+        .detail-plant-name { font-size:var(--font-2xl); font-weight:800; color:var(--gray-800); }
+        .detail-plant-latin { font-size:var(--font-sm); color:var(--gray-400); font-style:italic; margin-bottom:8px; }
+        .detail-plant-meta { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px; font-size:var(--font-sm); color:var(--gray-600); }
+        .detail-plant-meta span { background:var(--gray-50); padding:6px 12px; border-radius:16px; font-weight:500; }
+        .detail-plant-desc { font-size:var(--font-base); color:var(--gray-600); line-height:1.7; margin-top:6px; }
+        .map-section { margin-bottom:16px; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); }
+        .map-section-title { font-weight:700; font-size:var(--font-base); color:var(--gray-800); padding:12px 16px 6px; }
+        .map-container { width:100%; height:300px; background:#e8f5e9; position:relative; border-radius:0 0 var(--radius-lg) var(--radius-lg); overflow:hidden; }
+        .map-placeholder { width:100%; height:100%; background:linear-gradient(135deg,#e3f2e8,#c8e6d4,#d4edda,#f1f8f4); position:relative; overflow:hidden; }
+        .map-grid { position:absolute; top:0; left:0; right:0; bottom:0; background-image:linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); background-size:30px 30px; }
+        .map-marker { position:absolute; transform:translate(-50%,-100%); cursor:pointer; z-index:5; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+        .map-marker-pin { width:28px; height:36px; background:#e74c3c; border-radius:50% 50% 50% 50% / 60% 60% 40% 40%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:700; }
+        .map-marker-pin::after { content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid #e74c3c; }
+        .map-marker-label { position:absolute; top:-28px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.78); color:#fff; font-size:10px; padding:4px 8px; border-radius:10px; white-space:nowrap; }
+        .map-legend { position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,0.9); padding:8px 12px; border-radius:10px; font-size:11px; color:var(--gray-600); box-shadow:var(--shadow-sm); display:flex; gap:8px; z-index:6; }
+        .checkin-stats { display:flex; align-items:center; gap:12px; padding:16px 18px; background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-radius:var(--radius-lg); margin-bottom:16px; cursor:pointer; box-shadow:var(--shadow-sm); border:1px solid #bbf7d0; }
+        .checkin-stats:active { transform:scale(0.98); }
+        .checkin-stats-icon { font-size:40px; flex-shrink:0; }
+        .checkin-stats-info { flex:1; }
+        .checkin-stats-count { font-size:var(--font-3xl); font-weight:800; color:var(--green-dark); letter-spacing:-1px; }
+        .checkin-stats-label { font-size:var(--font-xs); color:var(--gray-500); }
+        .btn-checkin { padding:12px 22px; background:var(--green); color:#fff; border:none; border-radius:24px; font-size:var(--font-base); font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(64,145,108,0.35); }
+        .btn-checkin:active { transform:scale(0.94); background:var(--green-dark); }
+        .comment-section { margin-bottom:16px; }
+        .comment-section-title { font-weight:700; font-size:var(--font-base); color:var(--gray-800); margin-bottom:12px; }
+        .comment-list { display:flex; flex-direction:column; gap:12px; max-height:400px; overflow-y:auto; }
+        .comment-item { display:flex; gap:10px; padding:12px; background:var(--gray-50); border-radius:var(--radius); }
+        .comment-avatar { width:36px; height:36px; border-radius:50%; background:var(--green-pale); display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--green-dark); font-weight:700; }
+        .comment-body { flex:1; min-width:0; }
+        .comment-username { font-weight:600; font-size:var(--font-sm); color:var(--gray-700); }
+        .comment-time { font-size:var(--font-xs); color:var(--gray-400); margin-left:6px; }
+        .comment-text { font-size:var(--font-sm); color:var(--gray-600); margin-top:3px; line-height:1.5; }
+        .comment-input-row { display:flex; gap:8px; margin-top:12px; }
+        .comment-input { flex:1; padding:11px 16px; border-radius:22px; border:1.5px solid var(--gray-200); font-size:var(--font-sm); outline:none; }
+        .comment-input:focus { border-color:var(--green-light); box-shadow:0 0 0 3px rgba(64,145,108,0.06); }
+        .btn-send-comment { padding:11px 18px; background:var(--green); color:#fff; border:none; border-radius:22px; font-weight:600; font-size:var(--font-sm); cursor:pointer; }
+        .btn-send-comment:active { transform:scale(0.94); background:var(--green-dark); }
+        .checkin-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; z-index:300; background:rgba(0,0,0,0.5); display:none; align-items:flex-end; justify-content:center; }
+        .checkin-modal-overlay.visible { display:flex; animation:fadeIn 0.25s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .checkin-modal { background:var(--white); border-radius:var(--radius-xl) var(--radius-xl) 0 0; width:100%; max-width:500px; padding:20px 18px 30px; animation:slideUpModal 0.35s ease; max-height:85vh; overflow-y:auto; }
+        @keyframes slideUpModal { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        .checkin-modal-handle { width:40px; height:5px; background:var(--gray-300); border-radius:3px; margin:0 auto 18px; }
+        .checkin-modal h3 { font-size:var(--font-xl); font-weight:700; text-align:center; margin-bottom:16px; }
+        .checkin-preview { width:100%; height:240px; border-radius:var(--radius-lg); background:var(--gray-100); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:14px; cursor:pointer; border:2px dashed var(--gray-300); }
+        .checkin-preview img { width:100%; height:100%; object-fit:cover; }
+        .checkin-preview-placeholder { text-align:center; color:var(--gray-400); font-size:var(--font-sm); }
+        .checkin-note { width:100%; padding:12px 14px; border-radius:var(--radius); border:1.5px solid var(--gray-200); font-size:var(--font-sm); resize:vertical; min-height:60px; font-family:inherit; outline:none; margin-bottom:14px; }
+        .checkin-note:focus { border-color:var(--green-light); }
+        .checkin-modal-btns { display:flex; gap:10px; }
+        .btn-cancel { flex:1; padding:13px; border-radius:24px; border:1.5px solid var(--gray-200); background:var(--white); font-size:var(--font-base); font-weight:600; cursor:pointer; color:var(--gray-600); }
+        .btn-submit-checkin { flex:2; padding:13px; border-radius:24px; border:none; background:var(--green); color:#fff; font-size:var(--font-base); font-weight:700; cursor:pointer; }
+        .btn-submit-checkin:disabled { background:var(--gray-300); cursor:not-allowed; }
+        .toast { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0.8); background:rgba(0,0,0,0.82); color:#fff; padding:14px 24px; border-radius:24px; font-weight:600; font-size:var(--font-base); z-index:999; pointer-events:none; opacity:0; transition:all 0.3s; }
+        .toast.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+        .my-checkins-page { display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:200; background:var(--white); overflow-y:auto; animation:slideUp 0.35s ease; }
+        .my-checkins-page.visible { display:block; }
+        .my-checkins-list { padding:16px 18px 100px; display:grid; gap:12px; }
+        .checkin-record-card { display:flex; gap:12px; background:var(--white); border-radius:var(--radius-lg); padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--gray-100); align-items:center; }
+        .checkin-record-img { width:80px; height:80px; border-radius:var(--radius); object-fit:cover; background:var(--gray-100); }
+        .checkin-record-info { flex:1; min-width:0; }
+        .checkin-record-plant { font-weight:700; font-size:var(--font-base); color:var(--gray-800); }
+        .checkin-record-time { font-size:var(--font-xs); color:var(--gray-400); }
+        .checkin-record-note { font-size:var(--font-sm); color:var(--gray-500); margin-top:4px; }
+        .checkin-record-delete { color:#ef4444; font-size:var(--font-xs); cursor:pointer; padding:6px 10px; border-radius:12px; border:1px solid #fecaca; background:#fef2f2; }
+        @media (max-width:400px) { .plant-card-image{height:150px} .detail-hero{height:200px} .map-container{height:240px} }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="nav-bar">
+        <div class="nav-title"><span class="icon-leaf">🌿</span>校园植物目录</div>
+        <div class="nav-actions">
+            <button class="btn-icon" id="btnMyCheckins">📋<span id="myCheckinsBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;align-items:center;justify-content:center;font-weight:600;border:2px solid #fff;padding:0 5px;">0</span></button>
+        </div>
+    </div>
+    <div class="search-container">
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索植物名称...">
+            <button class="search-clear" id="searchClear">✕</button>
+        </div>
+    </div>
+    <div class="category-tabs" id="categoryTabs">
+        <div class="category-tab active" data-category="全部">全部</div>
+        <div class="category-tab" data-category="乔木">🌳 乔木</div>
+        <div class="category-tab" data-category="灌木">🌿 灌木</div>
+        <div class="category-tab" data-category="花卉">🌸 花卉</div>
+        <div class="category-tab" data-category="水生">💧 水生</div>
+        <div class="category-tab" data-category="藤本">🌱 藤本</div>
+    </div>
+    <div class="plant-list" id="plantList"></div>
+    <div class="empty-state" id="emptyState" style="display:none;"><div class="empty-icon">🔍</div><p>没有找到匹配的植物</p></div>
+</div>
+
+<div class="detail-overlay" id="detailOverlay">
+    <div class="detail-header">
+        <button class="btn-back" id="btnBack">←</button>
+        <span class="detail-header-title" id="detailHeaderTitle">植物详情</span>
+    </div>
+    <div class="detail-hero" id="detailHero"><span class="hero-emoji" id="detailHeroEmoji">🌳</span></div>
+    <div class="detail-content" id="detailContent"></div>
+</div>
+
+<div class="checkin-modal-overlay" id="checkinModalOverlay">
+    <div class="checkin-modal">
+        <div class="checkin-modal-handle"></div>
+        <h3>📸 拍照打卡</h3>
+        <p style="text-align:center;color:var(--gray-500);font-size:var(--font-sm);margin-bottom:10px;">为 <strong id="checkinPlantName">--</strong> 打卡</p>
+        <div class="checkin-preview" id="checkinPreview">
+            <div class="checkin-preview-placeholder" id="checkinPlaceholder"><span class="camera-icon">📷</span>点击拍照或选择图片</div>
+            <img id="checkinPreviewImg" src="" alt="预览" style="display:none;">
+        </div>
+        <textarea class="checkin-note" id="checkinNote" placeholder="写一句感想吧（选填）..."></textarea>
+        <div class="checkin-modal-btns">
+            <button class="btn-cancel" id="btnCancelCheckin">取消</button>
+            <button class="btn-submit-checkin" id="btnSubmitCheckin" disabled>确认打卡 ✅</button>
+        </div>
+    </div>
+</div>
+
+<div class="my-checkins-page" id="myCheckinsPage">
+    <div class="detail-header">
+        <button class="btn-back" id="btnBackMyCheckins">←</button>
+        <span class="detail-header-title">我的打卡记录</span>
+    </div>
+    <div class="my-checkins-list" id="myCheckinsList"></div>
+    <div class="empty-state" id="myCheckinsEmpty" style="display:none;"><div class="empty-icon">📭</div><p>还没有打卡记录</p></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none;">
+
+<script>
+  (function() {
+    // ========== 已替换您的真实凭证 ==========
+    const SUPABASE_URL = 'https://mxxhaaxyitudayxrwtks.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_ygNGBekLhzsDkkrlKpQtog_UMFjvTFF';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const plantData = [
+      { id:1,name:'银杏',latinName:'Ginkgo biloba L.',family:'银杏科',genus:'银杏属',category:'乔木',emoji:'🌳',color1:'#f9e076',color2:'#e8c840',description:'银杏是古老的孑遗植物，被誉为“活化石”…',floweringPeriod:'3-4月开花，9-10月果熟',features:['秋季金黄','活化石','扇形叶'],locations:[{name:'图书馆前广场',lat:31.0255,lng:121.4368,desc:'三棵古银杏'},{name:'行政楼东侧',lat:31.0262,lng:121.4375,desc:'银杏大道'},{name:'北门主干道',lat:31.0270,lng:121.4360,desc:'12棵'}]},
+      { id:2,name:'樱花',latinName:'Cerasus serrulata',family:'蔷薇科',genus:'樱属',category:'乔木',emoji:'🌸',color1:'#f8c8d8',color2:'#f0a0b8',description:'樱花是春天最美的使者…',floweringPeriod:'3-4月',features:['春季开花','粉色花海','花期约2周'],locations:[{name:'樱花大道',lat:31.0250,lng:121.4370,desc:'长约200米'},{name:'第二食堂南侧',lat:31.0245,lng:121.4365,desc:'5棵'}]},
+      { id:3,name:'桂花',latinName:'Osmanthus fragrans',family:'木犀科',genus:'木犀属',category:'灌木',emoji:'🌼',color1:'#f5e6c8',color2:'#e8d5a0',description:'桂花香气馥郁…',floweringPeriod:'9-10月',features:['芳香浓郁','秋季开花'],locations:[{name:'教学楼A区花坛',lat:31.0253,lng:121.4378,desc:'金桂8棵'}]},
+      { id:4,name:'梧桐',latinName:'Firmiana simplex',family:'梧桐科',genus:'梧桐属',category:'乔木',emoji:'🍁',color1:'#d4a574',color2:'#c49060',description:'梧桐是校园主干道的标志性行道树…',floweringPeriod:'6-7月开花',features:['阔叶遮阴','秋季落叶'],locations:[{name:'校园主干道',lat:31.0255,lng:121.4365,desc:'40余棵'}]},
+      { id:5,name:'梅花',latinName:'Prunus mume',family:'蔷薇科',genus:'李属',category:'乔木',emoji:'🏵️',color1:'#f0d0d8',color2:'#e8b0c0',description:'梅花在寒冬中绽放…',floweringPeriod:'1-3月',features:['冬季开花','清香'],locations:[{name:'梅园',lat:31.0242,lng:121.4355,desc:'20余棵'}]},
+      { id:6,name:'荷花',latinName:'Nelumbo nucifera',family:'莲科',genus:'莲属',category:'水生',emoji:'🪷',color1:'#e8c8d8',color2:'#d4a8c0',description:'荷花出淤泥而不染…',floweringPeriod:'6-9月',features:['水生植物','夏季开花'],locations:[{name:'荷花池',lat:31.0250,lng:121.4348,desc:'满池荷花'}]},
+      { id:7,name:'紫藤',latinName:'Wisteria sinensis',family:'豆科',genus:'紫藤属',category:'藤本',emoji:'💜',color1:'#c8b8e8',color2:'#b0a0d8',description:'紫藤长廊是校园最浪漫的地方…',floweringPeriod:'4-5月',features:['藤本植物','紫色花瀑'],locations:[{name:'紫藤长廊',lat:31.0257,lng:121.4353,desc:'长约50米'}]},
+      { id:8,name:'雪松',latinName:'Cedrus deodara',family:'松科',genus:'雪松属',category:'乔木',emoji:'🌲',color1:'#5a8a5c',color2:'#3d6b3e',description:'雪松四季常青…',floweringPeriod:'10-11月',features:['常绿','树形优美'],locations:[{name:'北门雪松林',lat:31.0272,lng:121.4362,desc:'约30棵'}]}
+    ];
+
+    let currentPlantId = null;
+    let currentCheckinImageData = null;
+    const STORAGE_KEY_CHECKINS = 'campus_plant_checkins_local';
+    let checkinCountsCache = {};
+
+    // 云端函数
+    async function loadAllCounts() {
+      const { data } = await supabase.from('checkin_counts').select('*');
+      if (data) data.forEach(item => { checkinCountsCache[item.plant_id] = item.count; });
+    }
+    async function fetchSingleCount(plantId) {
+      const { data } = await supabase.from('checkin_counts').select('count').eq('plant_id', plantId).maybeSingle();
+      return data ? data.count : 0;
+    }
+    async function incrementPlantCount(plantId) {
+      const current = await fetchSingleCount(plantId);
+      const newCount = current + 1;
+      const { error } = await supabase.from('checkin_counts').upsert({ plant_id: plantId, count: newCount }, { onConflict: 'plant_id' });
+      if (!error) { checkinCountsCache[plantId] = newCount; return newCount; }
+      return current;
+    }
+    async function fetchComments(plantId) {
+      const { data } = await supabase.from('comments').select('*').eq('plant_id', plantId).order('created_at', { ascending: false });
+      return data || [];
+    }
+    async function addCommentToServer(plantId, content, username) {
+      const { data, error } = await supabase.from('comments').insert([{ plant_id: plantId, content, username }]).select().single();
+      return error ? null : data;
+    }
+
+    // 本地打卡记录
+    function getMyCheckins() { return JSON.parse(localStorage.getItem(STORAGE_KEY_CHECKINS) || '[]'); }
+    function saveMyCheckins(list) { localStorage.setItem(STORAGE_KEY_CHECKINS, JSON.stringify(list)); }
+    function addMyCheckin(record) { const list = getMyCheckins(); list.unshift(record); saveMyCheckins(list); updateBadge(); }
+    function removeMyCheckin(id) { saveMyCheckins(getMyCheckins().filter(r => r.id !== id)); updateBadge(); }
+    function updateBadge() {
+      const count = getMyCheckins().length;
+      const badge = document.getElementById('myCheckinsBadge');
+      if (count > 0) { badge.style.display = 'flex'; badge.textContent = count > 99 ? '99+' : count; }
+      else badge.style.display = 'none';
+    }
+
+    // DOM引用
+    const $plantList = document.getElementById('plantList');
+    const $emptyState = document.getElementById('emptyState');
+    const $searchInput = document.getElementById('searchInput');
+    const $searchClear = document.getElementById('searchClear');
+    const $categoryTabs = document.getElementById('categoryTabs');
+    const $detailOverlay = document.getElementById('detailOverlay');
+    const $detailContent = document.getElementById('detailContent');
+    const $detailHero = document.getElementById('detailHero');
+    const $detailHeroEmoji = document.getElementById('detailHeroEmoji');
+    const $detailHeaderTitle = document.getElementById('detailHeaderTitle');
+    const $checkinModalOverlay = document.getElementById('checkinModalOverlay');
+    const $checkinPlantName = document.getElementById('checkinPlantName');
+    const $checkinPreview = document.getElementById('checkinPreview');
+    const $checkinPlaceholder = document.getElementById('checkinPlaceholder');
+    const $checkinPreviewImg = document.getElementById('checkinPreviewImg');
+    const $checkinNote = document.getElementById('checkinNote');
+    const $btnSubmitCheckin = document.getElementById('btnSubmitCheckin');
+    const $fileInput = document.getElementById('fileInput');
+    const $toast = document.getElementById('toast');
+    const $myCheckinsPage = document.getElementById('myCheckinsPage');
+    const $myCheckinsList = document.getElementById('myCheckinsList');
+    const $myCheckinsEmpty = document.getElementById('myCheckinsEmpty');
+
+    let activeCategory = '全部';
+    let searchQuery = '';
+
+    function showToast(msg) {
+      $toast.textContent = msg;
+      $toast.classList.add('show');
+      clearTimeout($toast._timeout);
+      $toast._timeout = setTimeout(() => $toast.classList.remove('show'), 1800);
+    }
+
+    function getFilteredPlants() {
+      let plants = plantData;
+      if (activeCategory !== '全部') plants = plants.filter(p => p.category === activeCategory);
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        plants = plants.filter(p => p.name.toLowerCase().includes(q) || p.latinName.toLowerCase().includes(q) || p.features.some(f => f.toLowerCase().includes(q)));
+      }
+      return plants;
+    }
+
+    function renderPlantList() {
+      const plants = getFilteredPlants();
+      if (plants.length === 0) {
+        $plantList.innerHTML = '';
+        $emptyState.style.display = 'block';
+      } else {
+        $emptyState.style.display = 'none';
+        $plantList.innerHTML = plants.map(p => {
+          const count = checkinCountsCache[p.id] !== undefined ? checkinCountsCache[p.id] : 0;
+          return `<div class="plant-card" data-plant-id="${p.id}" onclick="openDetail(${p.id})">
+            <div class="plant-card-image" style="background:linear-gradient(135deg, ${p.color1} 0%, ${p.color2} 60%, ${p.color1} 100%);">
+              <span class="plant-emoji">${p.emoji}</span>
+              <span class="plant-card-badge">${p.category}</span>
+            </div>
+            <div class="plant-card-body">
+              <div class="plant-card-name">${p.name}</div>
+              <div class="plant-card-latin">${p.latinName}</div>
+              <div class="plant-card-desc">${p.description.substring(0,50)}...</div>
+              <div class="plant-card-footer">
+                <div class="plant-card-tags">${p.features.slice(0,2).map(f=>`<span class="plant-tag">${f}</span>`).join('')}</div>
+                <div class="plant-card-checkins"><span class="checkin-icon">📸</span> ${count}人打卡</div>
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    async function openDetail(plantId) {
+      const plant = plantData.find(p => p.id === plantId);
+      if (!plant) return;
+      currentPlantId = plantId;
+      const count = await fetchSingleCount(plantId);
+      checkinCountsCache[plantId] = count;
+      const comments = await fetchComments(plantId);
+
+      $detailHeaderTitle.textContent = plant.name;
+      $detailHero.style.background = `linear-gradient(160deg, ${plant.color1} 0%, ${plant.color2} 50%, ${plant.color1} 100%)`;
+      $detailHeroEmoji.textContent = plant.emoji;
+
+      const mapMarkersHTML = plant.locations.map((loc, i) => {
+        const left = 15 + i*28 + Math.sin(i*1.5)*8;
+        const top = 25 + i*20 + Math.cos(i*1.8)*10;
+        return `<div class="map-marker" style="left:${left}%;top:${top}%;"><div class="map-marker-label">${loc.name}</div><div class="map-marker-pin">${i+1}</div></div>`;
+      }).join('');
+
+      $detailContent.innerHTML = `
+        <div class="detail-info-card">
+          <div class="detail-plant-name">${plant.name}</div>
+          <div class="detail-plant-latin">${plant.latinName}</div>
+          <div class="detail-plant-meta"><span>📚 ${plant.family}</span><span>🌿 ${plant.genus}</span><span>📅 ${plant.floweringPeriod}</span></div>
+          <div class="detail-plant-desc">${plant.description}</div>
+        </div>
+        <div class="map-section">
+          <div class="map-section-title">📍 校园分布地图</div>
+          <div class="map-container"><div class="map-placeholder"><div class="map-grid"></div>${mapMarkersHTML}<div class="map-legend"><span class="map-legend-dot"></span> ${plant.name}分布 (${plant.locations.length}处)</div></div></div>
+          <div style="padding:8px 16px 4px;font-size:var(--font-xs);color:var(--gray-500);">${plant.locations.map((l,i)=>`🔴${i+1}. ${l.name}`).join(' ')}</div>
+        </div>
+        <div class="checkin-stats" onclick="openCheckinModal(${plant.id})">
+          <span class="checkin-stats-icon">📸</span>
+          <div class="checkin-stats-info"><div class="checkin-stats-count" id="detailCheckinCount">${count}</div><div class="checkin-stats-label">已打卡学生数</div></div>
+          <button class="btn-checkin" onclick="event.stopPropagation();openCheckinModal(${plant.id})">📷 打卡</button>
+        </div>
+        <div class="comment-section">
+          <div class="comment-section-title">💬 评论 (${comments.length})</div>
+          <div class="comment-list" id="commentList">
+            ${comments.length === 0 ? '<div style="text-align:center;color:var(--gray-400);padding:20px;">暂无评论，来说两句吧~</div>' : 
+              comments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.username.charAt(0)}</div><div class="comment-body"><span class="comment-username">${c.username}</span><span class="comment-time">${c.created_at}</span><div class="comment-text">${c.content}</div></div></div>`).join('')}
+          </div>
+          <div class="comment-input-row">
+            <input type="text" class="comment-input" id="commentInput" placeholder="写下你的评论..." maxlength="200">
+            <button class="btn-send-comment" id="btnSendComment">发送</button>
+          </div>
+        </div>
+      `;
+
+      $detailOverlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      $detailOverlay.scrollTop = 0;
+
+      const commentInput = document.getElementById('commentInput');
+      const btnSend = document.getElementById('btnSendComment');
+      if (commentInput && btnSend) {
+        const sendHandler = async () => {
+          const content = commentInput.value.trim();
+          if (!content) { showToast('请输入评论内容'); return; }
+          const names = ['小明','小红','小华','小丽','阿杰','小林','小美'];
+          const username = names[Math.floor(Math.random()*names.length)] + '同学';
+          const result = await addCommentToServer(currentPlantId, content, username);
+          if (result) { commentInput.value = ''; showToast('评论发送成功！'); openDetail(currentPlantId); }
+          else showToast('评论发送失败，请稍后重试');
+        };
+        btnSend.addEventListener('click', sendHandler);
+        commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendHandler(); });
+      }
+    }
+
+    function closeDetail() {
+      $detailOverlay.classList.remove('visible');
+      document.body.style.overflow = '';
+      currentPlantId = null;
+      renderPlantList();
+    }
+
+    function openCheckinModal(plantId) {
+      const plant = plantData.find(p => p.id === plantId);
+      if (!plant) return;
+      currentPlantId = plantId;
+      $checkinPlantName.textContent = plant.name;
+      $checkinPreviewImg.style.display = 'none';
+      $checkinPlaceholder.style.display = 'block';
+      $checkinNote.value = '';
+      $btnSubmitCheckin.disabled = true;
+      currentCheckinImageData = null;
+      $checkinModalOverlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeCheckinModal() {
+      $checkinModalOverlay.classList.remove('visible');
+      if (!$detailOverlay.classList.contains('visible') && !$myCheckinsPage.classList.contains('visible')) document.body.style.overflow = '';
+    }
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        currentCheckinImageData = ev.target.result;
+        $checkinPreviewImg.src = currentCheckinImageData;
+        $checkinPreviewImg.style.display = 'block';
+        $checkinPlaceholder.style.display = 'none';
+        $btnSubmitCheckin.disabled = false;
+      };
+      reader.readAsDataURL(file);
+      $fileInput.value = '';
+    }
+    async function submitCheckin() {
+      if (!currentCheckinImageData || !currentPlantId) { showToast('请先拍照或选择图片'); return; }
+      const plant = plantData.find(p => p.id === currentPlantId);
+      const note = $checkinNote.value.trim();
+      const newCount = await incrementPlantCount(currentPlantId);
+      const record = {
+        id: 'ch_' + Date.now(), plantId: currentPlantId, plantName: plant.name, plantEmoji: plant.emoji,
+        imageData: currentCheckinImageData, time: new Date().toLocaleString(), note: note || '打卡记录'
+      };
+      addMyCheckin(record);
+      closeCheckinModal();
+      showToast(`🎉 打卡成功！${plant.name}已有${newCount}人打卡`);
+      if ($detailOverlay.classList.contains('visible') && currentPlantId) openDetail(currentPlantId);
+      renderPlantList();
+    }
+
+    function openMyCheckins() {
+      const list = getMyCheckins();
+      if (list.length === 0) {
+        $myCheckinsList.innerHTML = '';
+        $myCheckinsEmpty.style.display = 'block';
+      } else {
+        $myCheckinsEmpty.style.display = 'none';
+        $myCheckinsList.innerHTML = list.map(r => `
+          <div class="checkin-record-card">
+            <img class="checkin-record-img" src="${r.imageData}" onerror="this.style.background='var(--gray-200)';">
+            <div class="checkin-record-info">
+              <div class="checkin-record-plant">${r.plantEmoji} ${r.plantName}</div>
+              <div class="checkin-record-time">${r.time}</div>
+              <div class="checkin-record-note">${r.note}</div>
+            </div>
+            <button class="checkin-record-delete" data-id="${r.id}">删除</button>
+          </div>
+        `).join('');
+        document.querySelectorAll('.checkin-record-delete').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = e.target.dataset.id;
+            if (confirm('删除这条打卡记录？')) { removeMyCheckin(id); openMyCheckins(); showToast('记录已删除'); }
+          });
+        });
+      }
+      $myCheckinsPage.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      $myCheckinsPage.scrollTop = 0;
+    }
+    function closeMyCheckins() {
+      $myCheckinsPage.classList.remove('visible');
+      if (!$detailOverlay.classList.contains('visible')) document.body.style.overflow = '';
+      renderPlantList();
+    }
+
+    // 事件绑定
+    $searchInput.addEventListener('input', function() {
+      searchQuery = this.value;
+      $searchClear.classList.toggle('visible', searchQuery.length > 0);
+      renderPlantList();
+    });
+    $searchClear.addEventListener('click', () => { $searchInput.value = ''; searchQuery = ''; $searchClear.classList.remove('visible'); renderPlantList(); });
+    $categoryTabs.addEventListener('click', e => {
+      const tab = e.target.closest('.category-tab');
+      if (!tab) return;
+      activeCategory = tab.dataset.category;
+      document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      renderPlantList();
+    });
+    document.getElementById('btnBack').addEventListener('click', closeDetail);
+    document.getElementById('btnBackMyCheckins').addEventListener('click', closeMyCheckins);
+    $checkinPreview.addEventListener('click', () => $fileInput.click());
+    $fileInput.addEventListener('change', handleFileSelect);
+    document.getElementById('btnCancelCheckin').addEventListener('click', closeCheckinModal);
+    $btnSubmitCheckin.addEventListener('click', submitCheckin);
+    $checkinModalOverlay.addEventListener('click', e => { if (e.target === $checkinModalOverlay) closeCheckinModal(); });
+    document.getElementById('btnMyCheckins').addEventListener('click', openMyCheckins);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if ($checkinModalOverlay.classList.contains('visible')) closeCheckinModal();
+        else if ($detailOverlay.classList.contains('visible')) closeDetail();
+        else if ($myCheckinsPage.classList.contains('visible')) closeMyCheckins();
+      }
+    });
+
+    window.openDetail = openDetail;
+    window.openCheckinModal = openCheckinModal;
+
+    async function init() {
+      updateBadge();
+      await loadAllCounts();
+      renderPlantList();
+    }
+    init();
+  })();
+</script>
+</body>
+</html>
