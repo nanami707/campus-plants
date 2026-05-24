@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>校园植物目录 · 云同步版</title>
+    <title>现代职业技术学校校园植物打卡</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --green-dark:#2d6a4f; --green:#40916c; --green-light:#52b788; --green-pale:#95d5b2; --green-bg:#d8f3dc; --white:#fff; --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --shadow-sm:0 1px 2px rgba(0,0,0,0.05); --shadow:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06); --shadow-lg:0 10px 25px rgba(0,0,0,0.1),0 4px 10px rgba(0,0,0,0.08); --shadow-xl:0 20px 40px rgba(0,0,0,0.12); --radius-sm:10px; --radius:14px; --radius-lg:20px; --radius-xl:24px; --font-xs:11px; --font-sm:13px; --font-base:15px; --font-lg:17px; --font-xl:20px; --font-2xl:24px; --font-3xl:30px; --transition:0.2s cubic-bezier(0.4,0,0.2,1); }
@@ -77,12 +77,14 @@
         .comment-section { margin-bottom:16px; }
         .comment-section-title { font-weight:700; font-size:var(--font-base); color:var(--gray-800); margin-bottom:12px; }
         .comment-list { display:flex; flex-direction:column; gap:12px; max-height:400px; overflow-y:auto; }
-        .comment-item { display:flex; gap:10px; padding:12px; background:var(--gray-50); border-radius:var(--radius); }
+        .comment-item { display:flex; gap:10px; padding:12px; background:var(--gray-50); border-radius:var(--radius); position:relative; }
         .comment-avatar { width:36px; height:36px; border-radius:50%; background:var(--green-pale); display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--green-dark); font-weight:700; }
         .comment-body { flex:1; min-width:0; }
         .comment-username { font-weight:600; font-size:var(--font-sm); color:var(--gray-700); }
         .comment-time { font-size:var(--font-xs); color:var(--gray-400); margin-left:6px; }
         .comment-text { font-size:var(--font-sm); color:var(--gray-600); margin-top:3px; line-height:1.5; }
+        .comment-delete-btn { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; cursor:pointer; opacity:0.6; transition:opacity 0.2s; }
+        .comment-delete-btn:hover { opacity:1; }
         .comment-input-row { display:flex; gap:8px; margin-top:12px; }
         .comment-input { flex:1; padding:11px 16px; border-radius:22px; border:1.5px solid var(--gray-200); font-size:var(--font-sm); outline:none; }
         .comment-input:focus { border-color:var(--green-light); box-shadow:0 0 0 3px rgba(64,145,108,0.06); }
@@ -186,7 +188,6 @@
 
 <script>
   (function() {
-    // ========== 已替换您的真实凭证 ==========
     const SUPABASE_URL = 'https://mxxhaaxyitudayxrwtks.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_ygNGBekLhzsDkkrlKpQtog_UMFjvTFF';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -205,9 +206,25 @@
     let currentPlantId = null;
     let currentCheckinImageData = null;
     const STORAGE_KEY_CHECKINS = 'campus_plant_checkins_local';
+    const STORAGE_KEY_COMMENT_IDS = 'my_comment_ids';   // 存储自己发表的评论ID
     let checkinCountsCache = {};
 
-    // 云端函数
+    // 获取自己发表的评论ID列表
+    function getMyCommentIds() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY_COMMENT_IDS) || '[]');
+    }
+    function addMyCommentId(id) {
+      const ids = getMyCommentIds();
+      ids.push(id);
+      localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids));
+    }
+    function removeMyCommentId(id) {
+      let ids = getMyCommentIds();
+      ids = ids.filter(cid => cid !== id);
+      localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids));
+    }
+
+    // Supabase 操作
     async function loadAllCounts() {
       const { data } = await supabase.from('checkin_counts').select('*');
       if (data) data.forEach(item => { checkinCountsCache[item.plant_id] = item.count; });
@@ -231,6 +248,10 @@
       const { data, error } = await supabase.from('comments').insert([{ plant_id: plantId, content, username }]).select().single();
       return error ? null : data;
     }
+    async function deleteCommentFromServer(commentId) {
+      const { error } = await supabase.from('comments').delete().eq('id', commentId);
+      return !error;
+    }
 
     // 本地打卡记录
     function getMyCheckins() { return JSON.parse(localStorage.getItem(STORAGE_KEY_CHECKINS) || '[]'); }
@@ -244,7 +265,7 @@
       else badge.style.display = 'none';
     }
 
-    // DOM引用
+    // UI 元素
     const $plantList = document.getElementById('plantList');
     const $emptyState = document.getElementById('emptyState');
     const $searchInput = document.getElementById('searchInput');
@@ -323,6 +344,7 @@
       const count = await fetchSingleCount(plantId);
       checkinCountsCache[plantId] = count;
       const comments = await fetchComments(plantId);
+      const myCommentIds = getMyCommentIds();
 
       $detailHeaderTitle.textContent = plant.name;
       $detailHero.style.background = `linear-gradient(160deg, ${plant.color1} 0%, ${plant.color2} 50%, ${plant.color1} 100%)`;
@@ -355,7 +377,18 @@
           <div class="comment-section-title">💬 评论 (${comments.length})</div>
           <div class="comment-list" id="commentList">
             ${comments.length === 0 ? '<div style="text-align:center;color:var(--gray-400);padding:20px;">暂无评论，来说两句吧~</div>' : 
-              comments.map(c => `<div class="comment-item"><div class="comment-avatar">${c.username.charAt(0)}</div><div class="comment-body"><span class="comment-username">${c.username}</span><span class="comment-time">${c.created_at}</span><div class="comment-text">${c.content}</div></div></div>`).join('')}
+              comments.map(c => {
+                const isMine = myCommentIds.includes(c.id);
+                return `<div class="comment-item">
+                  <div class="comment-avatar">${c.username.charAt(0)}</div>
+                  <div class="comment-body">
+                    <span class="comment-username">${c.username}</span>
+                    <span class="comment-time">${c.created_at}</span>
+                    <div class="comment-text">${c.content}</div>
+                  </div>
+                  ${isMine ? `<button class="comment-delete-btn" onclick="deleteComment('${c.id}')" title="删除我的评论">🗑️</button>` : ''}
+                </div>`;
+              }).join('')}
           </div>
           <div class="comment-input-row">
             <input type="text" class="comment-input" id="commentInput" placeholder="写下你的评论..." maxlength="200">
@@ -376,14 +409,32 @@
           if (!content) { showToast('请输入评论内容'); return; }
           const names = ['小明','小红','小华','小丽','阿杰','小林','小美'];
           const username = names[Math.floor(Math.random()*names.length)] + '同学';
-          const result = await addCommentToServer(currentPlantId, content, username);
-          if (result) { commentInput.value = ''; showToast('评论发送成功！'); openDetail(currentPlantId); }
-          else showToast('评论发送失败，请稍后重试');
+          const newComment = await addCommentToServer(currentPlantId, content, username);
+          if (newComment) {
+            addMyCommentId(newComment.id);   // 保存评论ID到本地
+            commentInput.value = '';
+            showToast('评论发送成功！');
+            openDetail(currentPlantId);     // 刷新评论区
+          } else {
+            showToast('评论发送失败，请稍后重试');
+          }
         };
         btnSend.addEventListener('click', sendHandler);
         commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendHandler(); });
       }
     }
+
+    // 删除评论函数（暴露到全局）
+    window.deleteComment = async function(commentId) {
+      const success = await deleteCommentFromServer(commentId);
+      if (success) {
+        removeMyCommentId(commentId);
+        showToast('评论已删除');
+        if (currentPlantId) openDetail(currentPlantId);
+      } else {
+        showToast('删除失败');
+      }
+    };
 
     function closeDetail() {
       $detailOverlay.classList.remove('visible');
