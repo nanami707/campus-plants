@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>现代职业技术学校校园植物打卡</title>
+    <title>校园植物目录 · 云同步版</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --green-dark:#2d6a4f; --green:#40916c; --green-light:#52b788; --green-pale:#95d5b2; --green-bg:#d8f3dc; --white:#fff; --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --shadow-sm:0 1px 2px rgba(0,0,0,0.05); --shadow:0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06); --shadow-lg:0 10px 25px rgba(0,0,0,0.1),0 4px 10px rgba(0,0,0,0.08); --shadow-xl:0 20px 40px rgba(0,0,0,0.12); --radius-sm:10px; --radius:14px; --radius-lg:20px; --radius-xl:24px; --font-xs:11px; --font-sm:13px; --font-base:15px; --font-lg:17px; --font-xl:20px; --font-2xl:24px; --font-3xl:30px; --transition:0.2s cubic-bezier(0.4,0,0.2,1); }
@@ -16,6 +16,9 @@
         .btn-icon:active { transform:scale(0.93); background:var(--gray-200); }
         .btn-icon.has-badge::after { content:attr(data-badge); position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; font-size:10px; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:600; padding:0 5px; border:2px solid #fff; }
         .app-container { max-width:500px; margin:0 auto; background:var(--white); min-height:100vh; box-shadow:var(--shadow-xl); position:relative; }
+        .quiz-summary { margin: 12px 16px 4px; padding: 14px 16px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm); border: 1px solid #bbf7d0; }
+        .quiz-summary-text { font-weight: 600; font-size: var(--font-sm); color: var(--gray-700); }
+        .quiz-summary-count { font-size: var(--font-2xl); font-weight: 800; color: var(--green-dark); }
         .search-container { padding:8px 16px 14px; position:sticky; top:64px; z-index:50; background:var(--white); }
         .search-wrapper { display:flex; align-items:center; gap:10px; background:var(--gray-100); border-radius:28px; padding:11px 18px; border:2px solid transparent; }
         .search-wrapper:focus-within { border-color:var(--green-light); background:var(--white); box-shadow:0 0 0 4px rgba(64,145,108,0.08); }
@@ -74,6 +77,16 @@
         .checkin-stats-label { font-size:var(--font-xs); color:var(--gray-500); }
         .btn-checkin { padding:12px 22px; background:var(--green); color:#fff; border:none; border-radius:24px; font-size:var(--font-base); font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(64,145,108,0.35); }
         .btn-checkin:active { transform:scale(0.94); background:var(--green-dark); }
+        /* 答题卡片 */
+        .quiz-card { background: #fff; border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; border: 1px solid var(--gray-100); }
+        .quiz-title { font-weight: 700; font-size: var(--font-base); color: var(--gray-800); margin-bottom: 12px; }
+        .quiz-question { font-size: var(--font-base); color: var(--gray-700); margin-bottom: 14px; line-height: 1.6; }
+        .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+        .quiz-option { padding: 12px 16px; background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: 14px; cursor: pointer; transition: 0.2s; font-size: var(--font-sm); color: var(--gray-800); }
+        .quiz-option:active { transform: scale(0.97); background: var(--green-bg); }
+        .quiz-option.selected { background: var(--green-bg); border-color: var(--green); }
+        .quiz-status { margin-top: 12px; font-weight: 600; font-size: var(--font-sm); }
+        .quiz-locked { color: var(--green-dark); background: #f0fdf4; padding: 8px 14px; border-radius: 20px; display: inline-block; }
         .comment-section { margin-bottom:16px; }
         .comment-section-title { font-weight:700; font-size:var(--font-base); color:var(--gray-800); margin-bottom:12px; }
         .comment-list { display:flex; flex-direction:column; gap:12px; max-height:400px; overflow-y:auto; }
@@ -83,13 +96,11 @@
         .comment-username { font-weight:600; font-size:var(--font-sm); color:var(--gray-700); }
         .comment-time { font-size:var(--font-xs); color:var(--gray-400); margin-left:6px; }
         .comment-text { font-size:var(--font-sm); color:var(--gray-600); margin-top:3px; line-height:1.5; }
-        .comment-delete-btn { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; cursor:pointer; opacity:0.6; transition:opacity 0.2s; }
-        .comment-delete-btn:hover { opacity:1; }
+        .comment-delete-btn { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; cursor:pointer; opacity:0.6; }
         .comment-input-row { display:flex; gap:8px; margin-top:12px; }
         .comment-input { flex:1; padding:11px 16px; border-radius:22px; border:1.5px solid var(--gray-200); font-size:var(--font-sm); outline:none; }
         .comment-input:focus { border-color:var(--green-light); box-shadow:0 0 0 3px rgba(64,145,108,0.06); }
         .btn-send-comment { padding:11px 18px; background:var(--green); color:#fff; border:none; border-radius:22px; font-weight:600; font-size:var(--font-sm); cursor:pointer; }
-        .btn-send-comment:active { transform:scale(0.94); background:var(--green-dark); }
         .checkin-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; z-index:300; background:rgba(0,0,0,0.5); display:none; align-items:flex-end; justify-content:center; }
         .checkin-modal-overlay.visible { display:flex; animation:fadeIn 0.25s ease; }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -101,7 +112,6 @@
         .checkin-preview img { width:100%; height:100%; object-fit:cover; }
         .checkin-preview-placeholder { text-align:center; color:var(--gray-400); font-size:var(--font-sm); }
         .checkin-note { width:100%; padding:12px 14px; border-radius:var(--radius); border:1.5px solid var(--gray-200); font-size:var(--font-sm); resize:vertical; min-height:60px; font-family:inherit; outline:none; margin-bottom:14px; }
-        .checkin-note:focus { border-color:var(--green-light); }
         .checkin-modal-btns { display:flex; gap:10px; }
         .btn-cancel { flex:1; padding:13px; border-radius:24px; border:1.5px solid var(--gray-200); background:var(--white); font-size:var(--font-base); font-weight:600; cursor:pointer; color:var(--gray-600); }
         .btn-submit-checkin { flex:2; padding:13px; border-radius:24px; border:none; background:var(--green); color:#fff; font-size:var(--font-base); font-weight:700; cursor:pointer; }
@@ -119,6 +129,12 @@
         .checkin-record-note { font-size:var(--font-sm); color:var(--gray-500); margin-top:4px; }
         .checkin-record-delete { color:#ef4444; font-size:var(--font-xs); cursor:pointer; padding:6px 10px; border-radius:12px; border:1px solid #fecaca; background:#fef2f2; }
         @media (max-width:400px) { .plant-card-image{height:150px} .detail-hero{height:200px} .map-container{height:240px} }
+        /* 庆祝动画 */
+        .confetti { position:fixed; z-index:9999; animation: confettiFall 1.5s ease-out forwards; pointer-events:none; }
+        @keyframes confettiFall {
+            0% { opacity:1; transform: translateY(0) rotate(0deg) scale(1); }
+            100% { opacity:0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+        }
     </style>
 </head>
 <body>
@@ -128,6 +144,11 @@
         <div class="nav-actions">
             <button class="btn-icon" id="btnMyCheckins">📋<span id="myCheckinsBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;align-items:center;justify-content:center;font-weight:600;border:2px solid #fff;padding:0 5px;">0</span></button>
         </div>
+    </div>
+    <!-- 答题统计卡片（新增） -->
+    <div class="quiz-summary" id="quizSummary">
+        <span class="quiz-summary-text">🧠 植物知识答题</span>
+        <span class="quiz-summary-count" id="quizCorrectCount">0 / 8</span>
     </div>
     <div class="search-container">
         <div class="search-wrapper">
@@ -192,68 +213,83 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_ygNGBekLhzsDkkrlKpQtog_UMFjvTFF';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // 植物数据，新增 quiz 字段
     const plantData = [
-      { id:1,name:'银杏',latinName:'Ginkgo biloba L.',family:'银杏科',genus:'银杏属',category:'乔木',emoji:'🌳',color1:'#f9e076',color2:'#e8c840',description:'银杏是古老的孑遗植物，被誉为“活化石”…',floweringPeriod:'3-4月开花，9-10月果熟',features:['秋季金黄','活化石','扇形叶'],locations:[{name:'图书馆前广场',lat:31.0255,lng:121.4368,desc:'三棵古银杏'},{name:'行政楼东侧',lat:31.0262,lng:121.4375,desc:'银杏大道'},{name:'北门主干道',lat:31.0270,lng:121.4360,desc:'12棵'}]},
-      { id:2,name:'樱花',latinName:'Cerasus serrulata',family:'蔷薇科',genus:'樱属',category:'乔木',emoji:'🌸',color1:'#f8c8d8',color2:'#f0a0b8',description:'樱花是春天最美的使者…',floweringPeriod:'3-4月',features:['春季开花','粉色花海','花期约2周'],locations:[{name:'樱花大道',lat:31.0250,lng:121.4370,desc:'长约200米'},{name:'第二食堂南侧',lat:31.0245,lng:121.4365,desc:'5棵'}]},
-      { id:3,name:'桂花',latinName:'Osmanthus fragrans',family:'木犀科',genus:'木犀属',category:'灌木',emoji:'🌼',color1:'#f5e6c8',color2:'#e8d5a0',description:'桂花香气馥郁…',floweringPeriod:'9-10月',features:['芳香浓郁','秋季开花'],locations:[{name:'教学楼A区花坛',lat:31.0253,lng:121.4378,desc:'金桂8棵'}]},
-      { id:4,name:'梧桐',latinName:'Firmiana simplex',family:'梧桐科',genus:'梧桐属',category:'乔木',emoji:'🍁',color1:'#d4a574',color2:'#c49060',description:'梧桐是校园主干道的标志性行道树…',floweringPeriod:'6-7月开花',features:['阔叶遮阴','秋季落叶'],locations:[{name:'校园主干道',lat:31.0255,lng:121.4365,desc:'40余棵'}]},
-      { id:5,name:'梅花',latinName:'Prunus mume',family:'蔷薇科',genus:'李属',category:'乔木',emoji:'🏵️',color1:'#f0d0d8',color2:'#e8b0c0',description:'梅花在寒冬中绽放…',floweringPeriod:'1-3月',features:['冬季开花','清香'],locations:[{name:'梅园',lat:31.0242,lng:121.4355,desc:'20余棵'}]},
-      { id:6,name:'荷花',latinName:'Nelumbo nucifera',family:'莲科',genus:'莲属',category:'水生',emoji:'🪷',color1:'#e8c8d8',color2:'#d4a8c0',description:'荷花出淤泥而不染…',floweringPeriod:'6-9月',features:['水生植物','夏季开花'],locations:[{name:'荷花池',lat:31.0250,lng:121.4348,desc:'满池荷花'}]},
-      { id:7,name:'紫藤',latinName:'Wisteria sinensis',family:'豆科',genus:'紫藤属',category:'藤本',emoji:'💜',color1:'#c8b8e8',color2:'#b0a0d8',description:'紫藤长廊是校园最浪漫的地方…',floweringPeriod:'4-5月',features:['藤本植物','紫色花瀑'],locations:[{name:'紫藤长廊',lat:31.0257,lng:121.4353,desc:'长约50米'}]},
-      { id:8,name:'雪松',latinName:'Cedrus deodara',family:'松科',genus:'雪松属',category:'乔木',emoji:'🌲',color1:'#5a8a5c',color2:'#3d6b3e',description:'雪松四季常青…',floweringPeriod:'10-11月',features:['常绿','树形优美'],locations:[{name:'北门雪松林',lat:31.0272,lng:121.4362,desc:'约30棵'}]}
+      { id:1, name:'银杏', latinName:'Ginkgo biloba L.', category:'乔木', emoji:'🌳', color1:'#f9e076', color2:'#e8c840', description:'银杏是古老的孑遗植物…', floweringPeriod:'3-4月开花，9-10月果熟', features:['秋季金黄','活化石','扇形叶'], locations:[{name:'图书馆前广场',lat:31.0255,lng:121.4368,desc:'三棵古银杏'},{name:'行政楼东侧',lat:31.0262,lng:121.4375,desc:'银杏大道'},{name:'北门主干道',lat:31.0270,lng:121.4360,desc:'12棵'}],
+        quiz: { question: '银杏属于哪一类植物？', options: ['被子植物', '裸子植物', '蕨类植物', '苔藓植物'], correct: 1 } },
+      { id:2, name:'樱花', latinName:'Cerasus serrulata', category:'乔木', emoji:'🌸', color1:'#f8c8d8', color2:'#f0a0b8', description:'樱花是春天最美的使者…', floweringPeriod:'3-4月', features:['春季开花','粉色花海'], locations:[{name:'樱花大道',lat:31.0250,lng:121.4370,desc:'长约200米'}],
+        quiz: { question: '樱花通常在哪个月份盛开？', options: ['1月', '3-4月', '7月', '10月'], correct: 1 } },
+      { id:3, name:'桂花', latinName:'Osmanthus fragrans', category:'灌木', emoji:'🌼', color1:'#f5e6c8', color2:'#e8d5a0', description:'桂花香气馥郁…', floweringPeriod:'9-10月', features:['芳香浓郁','秋季开花'], locations:[{name:'教学楼A区花坛',lat:31.0253,lng:121.4378,desc:'金桂8棵'}],
+        quiz: { question: '桂花属于哪一种类？', options: ['乔木', '灌木', '藤本', '水生'], correct: 1 } },
+      { id:4, name:'梧桐', latinName:'Firmiana simplex', category:'乔木', emoji:'🍁', color1:'#d4a574', color2:'#c49060', description:'梧桐是校园主干道的标志性行道树…', floweringPeriod:'6-7月开花', features:['阔叶遮阴','秋季落叶'], locations:[{name:'校园主干道',lat:31.0255,lng:121.4365,desc:'40余棵'}],
+        quiz: { question: '梧桐的果实类型是？', options: ['坚果', '蓇葖果', '荚果', '核果'], correct: 1 } },
+      { id:5, name:'梅花', latinName:'Prunus mume', category:'乔木', emoji:'🏵️', color1:'#f0d0d8', color2:'#e8b0c0', description:'梅花在寒冬中绽放…', floweringPeriod:'1-3月', features:['冬季开花','清香'], locations:[{name:'梅园',lat:31.0242,lng:121.4355,desc:'20余棵'}],
+        quiz: { question: '梅花象征什么精神？', options: ['富贵', '坚韧', '柔弱', '丰收'], correct: 1 } },
+      { id:6, name:'荷花', latinName:'Nelumbo nucifera', category:'水生', emoji:'🪷', color1:'#e8c8d8', color2:'#d4a8c0', description:'荷花出淤泥而不染…', floweringPeriod:'6-9月', features:['水生植物','夏季开花'], locations:[{name:'荷花池',lat:31.0250,lng:121.4348,desc:'满池荷花'}],
+        quiz: { question: '荷花通常生长在哪里？', options: ['沙漠', '水中', '高山', '草原'], correct: 1 } },
+      { id:7, name:'紫藤', latinName:'Wisteria sinensis', category:'藤本', emoji:'💜', color1:'#c8b8e8', color2:'#b0a0d8', description:'紫藤长廊是校园最浪漫的地方…', floweringPeriod:'4-5月', features:['藤本植物','紫色花瀑'], locations:[{name:'紫藤长廊',lat:31.0257,lng:121.4353,desc:'长约50米'}],
+        quiz: { question: '紫藤属于哪一类？', options: ['乔木', '灌木', '藤本', '草本'], correct: 2 } },
+      { id:8, name:'雪松', latinName:'Cedrus deodara', category:'乔木', emoji:'🌲', color1:'#5a8a5c', color2:'#3d6b3e', description:'雪松四季常青…', floweringPeriod:'10-11月', features:['常绿','树形优美'], locations:[{name:'北门雪松林',lat:31.0272,lng:121.4362,desc:'约30棵'}],
+        quiz: { question: '雪松的叶子呈什么形状？', options: ['针形', '扇形', '掌状', '羽状'], correct: 0 } }
     ];
 
+    const TOTAL_PLANTS = plantData.length;
+    const STORAGE_KEY_QUIZ = 'plant_quiz_solved'; // 存储已答对的植物ID数组
+
+    // 获取已答对的植物ID列表
+    function getSolvedPlants() {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY_QUIZ) || '[]');
+    }
+    function isSolved(plantId) {
+      return getSolvedPlants().includes(plantId);
+    }
+    function markSolved(plantId) {
+      const solved = getSolvedPlants();
+      if (!solved.includes(plantId)) {
+        solved.push(plantId);
+        localStorage.setItem(STORAGE_KEY_QUIZ, JSON.stringify(solved));
+        updateQuizSummary(); // 更新主页统计
+      }
+    }
+    function updateQuizSummary() {
+      const count = getSolvedPlants().length;
+      document.getElementById('quizCorrectCount').textContent = count + ' / ' + TOTAL_PLANTS;
+    }
+
+    // 庆祝动画（飘落emoji）
+    function celebrate() {
+      const emojis = ['🎉', '🎊', '✨', '🌟', '💚', '🌿'];
+      for (let i = 0; i < 12; i++) {
+        const span = document.createElement('span');
+        span.className = 'confetti';
+        span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        span.style.left = Math.random() * 100 + '%';
+        span.style.top = -(Math.random() * 20 + 10) + 'px';
+        span.style.fontSize = (Math.random() * 20 + 20) + 'px';
+        span.style.animationDuration = (Math.random() * 1.5 + 1) + 's';
+        document.body.appendChild(span);
+        setTimeout(() => span.remove(), 3000);
+      }
+    }
+
+    // 其余变量与函数（与之前基本相同，仅添加答题相关）
     let currentPlantId = null;
     let currentCheckinImageData = null;
     const STORAGE_KEY_CHECKINS = 'campus_plant_checkins_local';
-    const STORAGE_KEY_COMMENT_IDS = 'my_comment_ids';   // 存储自己发表的评论ID
+    const STORAGE_KEY_COMMENT_IDS = 'my_comment_ids';
     let checkinCountsCache = {};
 
-    // 获取自己发表的评论ID列表
-    function getMyCommentIds() {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY_COMMENT_IDS) || '[]');
-    }
-    function addMyCommentId(id) {
-      const ids = getMyCommentIds();
-      ids.push(id);
-      localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids));
-    }
-    function removeMyCommentId(id) {
-      let ids = getMyCommentIds();
-      ids = ids.filter(cid => cid !== id);
-      localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids));
-    }
+    function getMyCommentIds() { return JSON.parse(localStorage.getItem(STORAGE_KEY_COMMENT_IDS) || '[]'); }
+    function addMyCommentId(id) { const ids = getMyCommentIds(); ids.push(id); localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids)); }
+    function removeMyCommentId(id) { let ids = getMyCommentIds(); ids = ids.filter(cid => cid !== id); localStorage.setItem(STORAGE_KEY_COMMENT_IDS, JSON.stringify(ids)); }
 
-    // Supabase 操作
-    async function loadAllCounts() {
-      const { data } = await supabase.from('checkin_counts').select('*');
-      if (data) data.forEach(item => { checkinCountsCache[item.plant_id] = item.count; });
-    }
-    async function fetchSingleCount(plantId) {
-      const { data } = await supabase.from('checkin_counts').select('count').eq('plant_id', plantId).maybeSingle();
-      return data ? data.count : 0;
-    }
-    async function incrementPlantCount(plantId) {
-      const current = await fetchSingleCount(plantId);
-      const newCount = current + 1;
-      const { error } = await supabase.from('checkin_counts').upsert({ plant_id: plantId, count: newCount }, { onConflict: 'plant_id' });
-      if (!error) { checkinCountsCache[plantId] = newCount; return newCount; }
-      return current;
-    }
-    async function fetchComments(plantId) {
-      const { data } = await supabase.from('comments').select('*').eq('plant_id', plantId).order('created_at', { ascending: false });
-      return data || [];
-    }
-    async function addCommentToServer(plantId, content, username) {
-      const { data, error } = await supabase.from('comments').insert([{ plant_id: plantId, content, username }]).select().single();
-      return error ? null : data;
-    }
-    async function deleteCommentFromServer(commentId) {
-      const { error } = await supabase.from('comments').delete().eq('id', commentId);
-      return !error;
-    }
+    async function loadAllCounts() { const { data } = await supabase.from('checkin_counts').select('*'); if (data) data.forEach(item => { checkinCountsCache[item.plant_id] = item.count; }); }
+    async function fetchSingleCount(plantId) { const { data } = await supabase.from('checkin_counts').select('count').eq('plant_id', plantId).maybeSingle(); return data ? data.count : 0; }
+    async function incrementPlantCount(plantId) { const current = await fetchSingleCount(plantId); const newCount = current + 1; const { error } = await supabase.from('checkin_counts').upsert({ plant_id: plantId, count: newCount }, { onConflict: 'plant_id' }); if (!error) { checkinCountsCache[plantId] = newCount; return newCount; } return current; }
+    async function fetchComments(plantId) { const { data } = await supabase.from('comments').select('*').eq('plant_id', plantId).order('created_at', { ascending: false }); return data || []; }
+    async function addCommentToServer(plantId, content, username) { const { data, error } = await supabase.from('comments').insert([{ plant_id: plantId, content, username }]).select().single(); return error ? null : data; }
+    async function deleteCommentFromServer(commentId) { const { error } = await supabase.from('comments').delete().eq('id', commentId); return !error; }
 
-    // 本地打卡记录
     function getMyCheckins() { return JSON.parse(localStorage.getItem(STORAGE_KEY_CHECKINS) || '[]'); }
     function saveMyCheckins(list) { localStorage.setItem(STORAGE_KEY_CHECKINS, JSON.stringify(list)); }
     function addMyCheckin(record) { const list = getMyCheckins(); list.unshift(record); saveMyCheckins(list); updateBadge(); }
@@ -265,7 +301,7 @@
       else badge.style.display = 'none';
     }
 
-    // UI 元素
+    // DOM
     const $plantList = document.getElementById('plantList');
     const $emptyState = document.getElementById('emptyState');
     const $searchInput = document.getElementById('searchInput');
@@ -337,6 +373,7 @@
       }
     }
 
+    // 打开详情页（含答题卡）
     async function openDetail(plantId) {
       const plant = plantData.find(p => p.id === plantId);
       if (!plant) return;
@@ -345,22 +382,40 @@
       checkinCountsCache[plantId] = count;
       const comments = await fetchComments(plantId);
       const myCommentIds = getMyCommentIds();
+      const solved = isSolved(plantId);
 
       $detailHeaderTitle.textContent = plant.name;
       $detailHero.style.background = `linear-gradient(160deg, ${plant.color1} 0%, ${plant.color2} 50%, ${plant.color1} 100%)`;
       $detailHeroEmoji.textContent = plant.emoji;
 
+      // 地图标记
       const mapMarkersHTML = plant.locations.map((loc, i) => {
         const left = 15 + i*28 + Math.sin(i*1.5)*8;
         const top = 25 + i*20 + Math.cos(i*1.8)*10;
         return `<div class="map-marker" style="left:${left}%;top:${top}%;"><div class="map-marker-label">${loc.name}</div><div class="map-marker-pin">${i+1}</div></div>`;
       }).join('');
 
+      // 答题区域HTML
+      const quizHTML = `
+        <div class="quiz-card">
+          <div class="quiz-title">🧠 植物知识小测</div>
+          <div class="quiz-question">${plant.quiz.question}</div>
+          <div class="quiz-options" id="quizOptions">
+            ${plant.quiz.options.map((opt, idx) => {
+              return `<div class="quiz-option" data-answer="${idx}">${String.fromCharCode(65+idx)}. ${opt}</div>`;
+            }).join('')}
+          </div>
+          <div class="quiz-status" id="quizStatus">
+            ${solved ? '<span class="quiz-locked">✅ 已答对</span>' : ''}
+          </div>
+        </div>
+      `;
+
       $detailContent.innerHTML = `
         <div class="detail-info-card">
           <div class="detail-plant-name">${plant.name}</div>
           <div class="detail-plant-latin">${plant.latinName}</div>
-          <div class="detail-plant-meta"><span>📚 ${plant.family}</span><span>🌿 ${plant.genus}</span><span>📅 ${plant.floweringPeriod}</span></div>
+          <div class="detail-plant-meta"><span>📚 ${plant.family || '未知'}</span><span>🌿 ${plant.genus || ''}</span><span>📅 ${plant.floweringPeriod}</span></div>
           <div class="detail-plant-desc">${plant.description}</div>
         </div>
         <div class="map-section">
@@ -368,9 +423,10 @@
           <div class="map-container"><div class="map-placeholder"><div class="map-grid"></div>${mapMarkersHTML}<div class="map-legend"><span class="map-legend-dot"></span> ${plant.name}分布 (${plant.locations.length}处)</div></div></div>
           <div style="padding:8px 16px 4px;font-size:var(--font-xs);color:var(--gray-500);">${plant.locations.map((l,i)=>`🔴${i+1}. ${l.name}`).join(' ')}</div>
         </div>
+        ${quizHTML}
         <div class="checkin-stats" onclick="openCheckinModal(${plant.id})">
           <span class="checkin-stats-icon">📸</span>
-          <div class="checkin-stats-info"><div class="checkin-stats-count" id="detailCheckinCount">${count}</div><div class="checkin-stats-label">已打卡学生数</div></div>
+          <div class="checkin-stats-info"><div class="checkin-stats-count">${count}</div><div class="checkin-stats-label">已打卡学生数</div></div>
           <button class="btn-checkin" onclick="event.stopPropagation();openCheckinModal(${plant.id})">📷 打卡</button>
         </div>
         <div class="comment-section">
@@ -381,12 +437,8 @@
                 const isMine = myCommentIds.includes(c.id);
                 return `<div class="comment-item">
                   <div class="comment-avatar">${c.username.charAt(0)}</div>
-                  <div class="comment-body">
-                    <span class="comment-username">${c.username}</span>
-                    <span class="comment-time">${c.created_at}</span>
-                    <div class="comment-text">${c.content}</div>
-                  </div>
-                  ${isMine ? `<button class="comment-delete-btn" onclick="deleteComment('${c.id}')" title="删除我的评论">🗑️</button>` : ''}
+                  <div class="comment-body"><span class="comment-username">${c.username}</span><span class="comment-time">${c.created_at}</span><div class="comment-text">${c.content}</div></div>
+                  ${isMine ? `<button class="comment-delete-btn" onclick="deleteComment('${c.id}')">🗑️</button>` : ''}
                 </div>`;
               }).join('')}
           </div>
@@ -401,6 +453,30 @@
       document.body.style.overflow = 'hidden';
       $detailOverlay.scrollTop = 0;
 
+      // 绑定答题事件
+      if (!solved) {
+        const quizOptions = document.querySelectorAll('#quizOptions .quiz-option');
+        quizOptions.forEach(opt => {
+          opt.addEventListener('click', function() {
+            const selected = parseInt(this.dataset.answer);
+            if (selected === plant.quiz.correct) {
+              // 答对
+              markSolved(plantId);
+              celebrate();
+              showToast('🎉 回答正确！');
+              // 更新答题状态显示
+              document.getElementById('quizStatus').innerHTML = '<span class="quiz-locked">✅ 已答对</span>';
+              quizOptions.forEach(o => o.style.pointerEvents = 'none');
+            } else {
+              showToast('❌ 再想想～');
+              this.style.backgroundColor = '#fee2e2';
+              setTimeout(() => { this.style.backgroundColor = ''; }, 500);
+            }
+          });
+        });
+      }
+
+      // 评论发送逻辑
       const commentInput = document.getElementById('commentInput');
       const btnSend = document.getElementById('btnSendComment');
       if (commentInput && btnSend) {
@@ -411,12 +487,12 @@
           const username = names[Math.floor(Math.random()*names.length)] + '同学';
           const newComment = await addCommentToServer(currentPlantId, content, username);
           if (newComment) {
-            addMyCommentId(newComment.id);   // 保存评论ID到本地
+            addMyCommentId(newComment.id);
             commentInput.value = '';
             showToast('评论发送成功！');
-            openDetail(currentPlantId);     // 刷新评论区
+            openDetail(currentPlantId);
           } else {
-            showToast('评论发送失败，请稍后重试');
+            showToast('评论发送失败');
           }
         };
         btnSend.addEventListener('click', sendHandler);
@@ -424,7 +500,6 @@
       }
     }
 
-    // 删除评论函数（暴露到全局）
     window.deleteComment = async function(commentId) {
       const success = await deleteCommentFromServer(commentId);
       if (success) {
@@ -561,6 +636,7 @@
 
     async function init() {
       updateBadge();
+      updateQuizSummary(); // 初始化答题统计
       await loadAllCounts();
       renderPlantList();
     }
